@@ -121,29 +121,62 @@ contract Arbitrage is IUniswapV3SwapCallback, IUniswapV2Callee {
     }
   }
 
-  function startArbitrage(SwapRoute[] memory swapRoutes, IERC20[] calldata tokenToWithdraw) external {
+  struct ArbMinData {
+    IERC20 token;
+    uint minAmount;
+  }
+
+  function arbitrage(SwapRoute[] memory swapRoutes) external {
+    require(msg.sender == address(this), "Arbitrage: Invalid sender");
+    handleRoute(swapRoutes, 0);
+  }
+
+  function startArbitrage(SwapRoute[] memory swapRoutes, ArbMinData[] calldata tokenToWithdraw) external {
     handleRoute(swapRoutes, 0);
     for (uint256 i = 0; i < tokenToWithdraw.length; i++) {
-      if (IERC20(tokenToWithdraw[i]).balanceOf(address(this)) == 0) {
+      uint balance = IERC20(tokenToWithdraw[i].token).balanceOf(address(this));
+      if (balance == 0) {
         continue;
       }
-      TransferLib.transferToken(tokenToWithdraw[i], msg.sender, tokenToWithdraw[i].balanceOf(address(this)));
+      require(balance >= tokenToWithdraw[i].minAmount, "Arbitrage: INSUFFICIENT_BALANCE");
+      TransferLib.transferToken(tokenToWithdraw[i].token, msg.sender, balance);
     }
   }
 
-  function callDataEfficientArbitrage(SwapRoute[] memory swapRoutes) external {
-    handleRoute(swapRoutes, 0);
-    for (uint256 i = 0; i < swapRoutes.length; i++) {
-      if (IERC20(swapRoutes[i].fromToken).balanceOf(address(this)) > 0) {
-        TransferLib.transferToken(
-          IERC20(swapRoutes[i].fromToken), msg.sender, IERC20(swapRoutes[i].fromToken).balanceOf(address(this))
-        );
+  // function callDataEfficientArbitrage(SwapRoute[] memory swapRoutes) external {
+  //   handleRoute(swapRoutes, 0);
+  //   for (uint256 i = 0; i < swapRoutes.length; i++) {
+  //     if (IERC20(swapRoutes[i].fromToken).balanceOf(address(this)) > 0) {
+  //       TransferLib.transferToken(
+  //         IERC20(swapRoutes[i].fromToken), msg.sender, IERC20(swapRoutes[i].fromToken).balanceOf(address(this))
+  //       );
+  //     }
+  //     if (IERC20(swapRoutes[i].toToken).balanceOf(address(this)) > 0) {
+  //       TransferLib.transferToken(
+  //         IERC20(swapRoutes[i].toToken), msg.sender, IERC20(swapRoutes[i].toToken).balanceOf(address(this))
+  //       );
+  //     }
+  //   }
+  // }
+
+  struct ArbMulticallData {
+    SwapRoute[] swapRoutes;
+    IERC20[] tokenToWithdraw;
+  }
+
+  function multicallArbCall(ArbMulticallData[] memory arb) external returns (uint256[][] memory balances) {
+    balances = new uint256[][](arb.length);
+    for (uint256 i = 0; i < arb.length; i++) {
+      balances[i] = new uint256[](arb[i].tokenToWithdraw.length);
+      ArbMinData[] memory tokenToWithdraw = new ArbMinData[](arb[i].tokenToWithdraw.length);
+      for (uint256 j = 0; j < arb[i].tokenToWithdraw.length; j++) {
+        tokenToWithdraw[j] = ArbMinData(arb[i].tokenToWithdraw[j], 0);
       }
-      if (IERC20(swapRoutes[i].toToken).balanceOf(address(this)) > 0) {
-        TransferLib.transferToken(
-          IERC20(swapRoutes[i].toToken), msg.sender, IERC20(swapRoutes[i].toToken).balanceOf(address(this))
-        );
-      }
+      try this.startArbitrage(arb[i].swapRoutes, tokenToWithdraw) {
+        for (uint256 j = 0; j < arb[i].tokenToWithdraw.length; j++) {
+          balances[i][j] = arb[i].tokenToWithdraw[j].balanceOf(address(this));
+        }
+      } catch {}
     }
   }
 }
