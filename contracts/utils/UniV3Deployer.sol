@@ -13,7 +13,7 @@ import {WETH} from "./WETH.sol";
 address constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
 Vm constant vm = Vm(VM_ADDRESS);
 
-contract Univ3Deployer {
+contract UniV3Deployer {
   IUniswapV3Factory public v3Factory;
   IWETH9 private weth9;
   INonfungibleTokenPositionDescriptor public tokenDescriptor;
@@ -44,7 +44,7 @@ contract Univ3Deployer {
     positionManager = INonfungiblePositionManager(ContractDeployer.deployBytecodeWithArgs(bytecode, args));
   }
 
-  function deployUniv3() public {
+  function deployUniV3() public {
     deployFactory();
     deployTokenDescriptor();
     deployPositionManager();

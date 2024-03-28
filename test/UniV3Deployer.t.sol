@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Test, console2 as console} from "forge-std/Test.sol";
-import {Univ3Deployer} from "../contracts/utils/UniV3Deployer.sol";
+import {UniV3Deployer} from "../contracts/utils/UniV3Deployer.sol";
 import {PoolAddress} from "../contracts/vendor/uni-v3/periphery/libraries/PoolAddress.sol";
 import {IUniswapV3Pool} from "../contracts/vendor/uni-v3/core/interfaces/IUniswapV3Pool.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,12 +12,12 @@ import {INonfungiblePositionManager} from
   "../contracts/vendor/uni-v3/periphery/interfaces/INonfungiblePositionManager.sol";
 import {WETH} from "../contracts/utils/WETH.sol";
 
-contract Univ3Deployer_test is Test, Univ3Deployer {
+contract Univ3Deployer_test is Test, UniV3Deployer {
   IERC20 base;
   IERC20 quote;
   WETH weth9 = new WETH();
 
-  constructor() Univ3Deployer(weth9) {}
+  constructor() UniV3Deployer(weth9) {}
 
   event PoolCreated(
     address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool
@@ -36,7 +36,7 @@ contract Univ3Deployer_test is Test, Univ3Deployer {
   }
 
   function setUp() public {
-    deployUniv3();
+    deployUniV3();
 
     base = weth9;
     quote = new TestToken("DAI", "DAI");

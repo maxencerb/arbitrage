@@ -20,7 +20,7 @@ contract UniV2Deployer {
     weth9 = _weth9;
   }
 
-  function deployFactory() private {
+  function deployV2Factory() private {
     string memory content = vm.readFile("script/uni-out/UniswapV2Factory.txt");
     bytes memory bytecode = vm.parseBytes(content);
     v2Factory = IUniswapV2Factory(ContractDeployer.deployBytecodeWithArgs(bytecode, abi.encode(address(this))));
@@ -33,7 +33,7 @@ contract UniV2Deployer {
   }
 
   function deployUniV2() public {
-    deployFactory();
+    deployV2Factory();
     deployRouter();
   }
 }
