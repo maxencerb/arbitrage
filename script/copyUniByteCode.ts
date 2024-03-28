@@ -2,6 +2,8 @@ import path from "node:path";
 
 const uniV3Core = "node_modules/@uniswap/v3-core";
 const uniV3Periphery = "node_modules/@uniswap/v3-periphery";
+const uniV2Core = "node_modules/@uniswap/v2-core";
+const uniV2Periphery = "node_modules/@uniswap/v2-periphery";
 
 const files = [
   path.join(
@@ -16,12 +18,22 @@ const files = [
     uniV3Periphery,
     "artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json"
   ),
+  path.join(
+    uniV2Core,
+    "build/UniswapV2Factory.json"
+  ),
+  path.join(
+    uniV2Periphery,
+    "build/UniswapV2Router02.json"
+  ),
 ];
 
 const outputs = [
   __dirname + "/uni-out/UniswapV3Factory.txt",
   __dirname + "/uni-out/NonfungibleTokenPositionDescriptor.txt",
   __dirname + "/uni-out/NonfungiblePositionManager.txt",
+  __dirname + "/uni-out/UniswapV2Factory.txt",
+  __dirname + "/uni-out/UniswapV2Router02.txt",
 ];
 
 async function main() {

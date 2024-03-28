@@ -14,19 +14,19 @@ address constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code
 Vm constant vm = Vm(VM_ADDRESS);
 
 contract Univ3Deployer {
-  IUniswapV3Factory public factory;
-  IWETH9 public weth9;
+  IUniswapV3Factory public v3Factory;
+  IWETH9 private weth9;
   INonfungibleTokenPositionDescriptor public tokenDescriptor;
   INonfungiblePositionManager public positionManager;
+
+  constructor(IWETH9 _weth9) {
+    weth9 = _weth9;
+  }
 
   function deployFactory() private {
     string memory content = vm.readFile("script/uni-out/UniswapV3Factory.txt");
     bytes memory bytecode = vm.parseBytes(content);
-    factory = IUniswapV3Factory(ContractDeployer.deployFromBytecode(bytecode));
-  }
-
-  function deployeWETH9() private {
-    weth9 = new WETH();
+    v3Factory = IUniswapV3Factory(ContractDeployer.deployFromBytecode(bytecode));
   }
 
   function deployTokenDescriptor() private {
@@ -40,13 +40,12 @@ contract Univ3Deployer {
   function deployPositionManager() private {
     string memory content = vm.readFile("script/uni-out/NonfungiblePositionManager.txt");
     bytes memory bytecode = vm.parseBytes(content);
-    bytes memory args = abi.encode(address(factory), address(weth9), address(tokenDescriptor));
+    bytes memory args = abi.encode(address(v3Factory), address(weth9), address(tokenDescriptor));
     positionManager = INonfungiblePositionManager(ContractDeployer.deployBytecodeWithArgs(bytecode, args));
   }
 
   function deployUniv3() public {
     deployFactory();
-    deployeWETH9();
     deployTokenDescriptor();
     deployPositionManager();
   }
