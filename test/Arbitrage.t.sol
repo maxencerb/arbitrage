@@ -20,6 +20,11 @@ contract Arbitrage_test is Test {
   IERC20 usdc = new TestToken("USDC", "USDC");
   IERC20 wbtc = new TestToken("WBTC", "WBTC");
 
+  uint24 fee = 500;
+
+  // BigInt(Math.sqrt(1/10000) * 2**96)
+  uint160 sqrtPrice = 792281625142643392428113920;
+
   UniV3Deployer v3Market0 = new UniV3Deployer(weth9);
   UniV3Deployer v3Market1 = new UniV3Deployer(weth9);
 
@@ -38,23 +43,27 @@ contract Arbitrage_test is Test {
   }
 
   function LPV3(
+    IUniswapV3Pool pool,
     address token0,
     address token1,
     uint256 amount0,
     uint256 amount1,
-    uint160 price,
-    int24 difflower,
-    int24 diffUpper,
+    int24 difflower, // needs to be modulo 10
+    int24 diffUpper, // needs to be modulo 10
     UniV3Deployer market
   ) internal {
     INonfungiblePositionManager positionManager = market.positionManager();
 
-    int24 tick = TickMath.getTickAtSqrtRatio(price);
+    (,int24 tick, , , , , ) = pool.slot0();
+
+    // align tick to be modulo 10.
+    tick = tick - tick % 10;
 
     INonfungiblePositionManager.MintParams memory params;
     params.token0 = token0;
     params.token1 = token1;
-    params.fee = 500;
+    params.fee = fee;
+
     params.tickLower = tick + difflower;
     params.tickUpper = tick + diffUpper;
     params.deadline = block.timestamp + 1000;
@@ -86,22 +95,18 @@ contract Arbitrage_test is Test {
     require(token0 < token1, "token0 must be less than token1");
     // get pool
     IUniswapV3Factory factory = market.v3Factory();
-    address pool = factory.getPool(token0, token1, 500);
+    address pool = factory.getPool(token0, token1, fee);
     require(pool == address(0), "Pool already exists");
-    pool = factory.createPool(token0, token1, 500);
-    // sqrtPriceX96 = sqrt(price) * 2 ** 96
-    // price = amount1/amount0
-    console.log(amount1 * 2 ** 96 / amount0);
-    uint160 price = uint160(sqrt(amount1 * 2 ** 96 / amount0));
+    pool = factory.createPool(token0, token1, fee);
+    IUniswapV3Pool(pool).initialize(sqrtPrice);
 
-    IUniswapV3Pool(pool).initialize(price);
 
     // mint multiple LP
-    LPV3(token0, token1, amount0, amount1, price, -500, 500, market);
-    LPV3(token0, token1, amount0, amount1, price, -500, 500, market);
-    LPV3(token0, token1, amount0, amount1, price, -1000, 1000, market);
-    LPV3(token0, token1, amount0, amount1, price, -400, 2000, market);
-    LPV3(token0, token1, amount0, amount1, price, -2000, 4000, market);
+    LPV3(IUniswapV3Pool(pool), token0, token1, amount0, amount1, -500, 500, market);
+    LPV3(IUniswapV3Pool(pool), token0, token1, amount0, amount1, -500, 500, market);
+    LPV3(IUniswapV3Pool(pool), token0, token1, amount0, amount1, -1000, 1000, market);
+    LPV3(IUniswapV3Pool(pool), token0, token1, amount0, amount1, -400, 2000, market);
+    LPV3(IUniswapV3Pool(pool), token0, token1, amount0, amount1, -2000, 4000, market);
   }
 
   function LPV2(address token0, address token1, uint256 amount0, uint256 amount1, UniV2Deployer market) internal {
@@ -162,24 +167,24 @@ contract Arbitrage_test is Test {
     params[3].tokenToWithdraw = tokens;
   }
 
-  function marketAtAmounts(uint16 _amount00, uint16 _amount01, uint16 _amount10, uint16 _amount11)
-    internal
-    returns (uint256 amount00, uint256 amount01, uint256 amount10, uint256 amount11, address token0, address token1)
-  {
-    vm.assume(_amount00 > 0 && _amount01 > 0 && _amount10 > 0 && _amount11 > 0);
-    amount00 = uint256(_amount00) * 10 ** 18;
-    amount01 = uint256(_amount01) * 10 ** 18;
-    amount10 = uint256(_amount10) * 10 ** 18;
-    amount11 = uint256(_amount11) * 10 ** 18;
-
-    token0 = weth9 < dai ? address(weth9) : address(dai);
-    token1 = weth9 < dai ? address(dai) : address(weth9);
-
-    initAndLPV3AtPrice(v3Market0, token0, token1, amount00, amount01);
-    initAndLPV3AtPrice(v3Market1, token0, token1, amount10, amount11);
-    initAndLPV2AtPrice(v2Market0, token0, token1, amount00, amount01);
-    initAndLPV2AtPrice(v2Market1, token0, token1, amount10, amount11);
-  }
+  // function marketAtAmounts(uint16 _amount00, uint16 _amount01, uint16 _amount10, uint16 _amount11)
+  //   internal
+  //   returns (uint256 amount00, uint256 amount01, uint256 amount10, uint256 amount11, address token0, address token1)
+  // {
+  //   vm.assume(_amount00 > 0 && _amount01 > 0 && _amount10 > 0 && _amount11 > 0);
+  //   amount00 = uint256(_amount00) * 10 ** 18;
+  //   amount01 = uint256(_amount01) * 10 ** 18;
+  //   amount10 = uint256(_amount10) * 10 ** 18;
+  //   amount11 = uint256(_amount11) * 10 ** 18;
+  //
+  //   token0 = weth9 < dai ? address(weth9) : address(dai);
+  //   token1 = weth9 < dai ? address(dai) : address(weth9);
+  //
+  //   initAndLPV3AtPrice(v3Market0, token0, token1, amount00, amount01);
+  //   initAndLPV3AtPrice(v3Market1, token0, token1, amount10, amount11);
+  //   initAndLPV2AtPrice(v2Market0, token0, token1, amount00, amount01);
+  //   initAndLPV2AtPrice(v2Market1, token0, token1, amount10, amount11);
+  // }
 
   function testSimpleArbitrageV2V2() public {
     address token0 = weth9 < dai ? address(weth9) : address(dai);
@@ -210,8 +215,35 @@ contract Arbitrage_test is Test {
     assertEq(result[0][1] == 0, true);
   }
 
-  function testFuzz_arb(uint16 _amount00, uint16 _amount01, uint16 _amount10, uint16 _amount11) public {
-    (,,,, address token0, address token1) = marketAtAmounts(_amount00, _amount01, _amount10, _amount11);
-    arb.multicallArbCall(prepareArb2TokensV2V2(token0, token1));
+  function testSimpleArbitrageV2V3() public {
+    address token0 = weth9 < dai ? address(weth9) : address(dai);
+    address token1 = weth9 < dai ? address(dai) : address(weth9);
+
+    initAndLPV2AtPrice(v2Market0, token0, token1, 10000 ether, 10 ether);
+    initAndLPV3AtPrice(v3Market1, token0, token1, 10000 ether, 5 ether);
+
+    address pair0 = v2Market0.v2Factory().getPair(token0, token1);
+    address pair1 = v3Market1.v3Factory().getPool(token0, token1, fee);
+
+    IERC20[] memory tokens = new IERC20[](2);
+    tokens[0] = IERC20(token0);
+    tokens[1] = IERC20(token1);
+
+    Arbitrage.ArbMulticallData[] memory paramsForOnePool = new Arbitrage.ArbMulticallData[](1);
+    paramsForOnePool[0].swapRoutes = new Arbitrage.SwapRoute[](2);
+    paramsForOnePool[0].swapRoutes[0] = Arbitrage.SwapRoute(token0, token1, 10 * 10**18, pair0, SwapType.UNI_V2);
+    paramsForOnePool[0].swapRoutes[1] = Arbitrage.SwapRoute(token1, token0, 0, pair1, SwapType.UNI_V3);
+    paramsForOnePool[0].tokenToWithdraw = tokens;
+
+    uint256[][] memory result = arb.multicallArbCall(paramsForOnePool);
+
+    assertEq(result.length == 1, true);
+    assertEq(result[0][0] > 0, true);
+    assertEq(result[0][1] == 0, true);
   }
+
+  // function testFuzz_arb(uint16 _amount00, uint16 _amount01, uint16 _amount10, uint16 _amount11) public {
+  //   (,,,, address token0, address token1) = marketAtAmounts(_amount00, _amount01, _amount10, _amount11);
+  //   arb.multicallArbCall(prepareArb2TokensV2V2(token0, token1));
+  // }
 }
