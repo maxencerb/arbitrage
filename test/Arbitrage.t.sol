@@ -181,6 +181,35 @@ contract Arbitrage_test is Test {
     initAndLPV2AtPrice(v2Market1, token0, token1, amount10, amount11);
   }
 
+  function testSimpleArbitrageV2V2() public {
+    address token0 = weth9 < dai ? address(weth9) : address(dai);
+    address token1 = weth9 < dai ? address(dai) : address(weth9);
+
+    initAndLPV2AtPrice(v2Market0, token0, token1, 10000 ether, 10 ether);
+    initAndLPV2AtPrice(v2Market1, token0, token1, 10000 ether, 5 ether);
+
+    address pair0 = v2Market0.v2Factory().getPair(token0, token1);
+    address pair1 = v2Market1.v2Factory().getPair(token0, token1);
+
+    SwapType swapType = SwapType.UNI_V2;
+
+    IERC20[] memory tokens = new IERC20[](2);
+    tokens[0] = IERC20(token0);
+    tokens[1] = IERC20(token1);
+
+    Arbitrage.ArbMulticallData[] memory paramsForOnePool = new Arbitrage.ArbMulticallData[](1);
+    paramsForOnePool[0].swapRoutes = new Arbitrage.SwapRoute[](2);
+    paramsForOnePool[0].swapRoutes[0] = Arbitrage.SwapRoute(token0, token1, 10 * 10**18, pair0, swapType);
+    paramsForOnePool[0].swapRoutes[1] = Arbitrage.SwapRoute(token1, token0, 0, pair1, swapType);
+    paramsForOnePool[0].tokenToWithdraw = tokens;
+
+    uint256[][] memory result = arb.multicallArbCall(paramsForOnePool);
+
+    assertEq(result.length == 1, true);
+    assertEq(result[0][0] > 0, true);
+    assertEq(result[0][1] == 0, true);
+  }
+
   function testFuzz_arb(uint16 _amount00, uint16 _amount01, uint16 _amount10, uint16 _amount11) public {
     (,,,, address token0, address token1) = marketAtAmounts(_amount00, _amount01, _amount10, _amount11);
     arb.multicallArbCall(prepareArb2TokensV2V2(token0, token1));

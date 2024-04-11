@@ -101,11 +101,13 @@ contract Arbitrage is IUniswapV3SwapCallback, IUniswapV2Callee {
     // At this point we have received the tokens from the pool
     // We need to transfer the tokens we owe to the pool by the end of the call
     (SwapRoute[] memory swapRoutes, uint256 step) = abi.decode(data, (SwapRoute[], uint256));
+
     handleRoute(swapRoutes, step + 1);
-    TransferLib.transferToken(IERC20(swapRoutes[step].fromToken), sender, swapRoutes[step].amountIn);
+    IERC20(swapRoutes[step].fromToken).transfer(swapRoutes[step].pool, swapRoutes[step].amountIn);
   }
 
   function handleRoute(SwapRoute[] memory swapRoutes, uint256 step) internal {
+
     if (step >= swapRoutes.length) {
       return;
     }
